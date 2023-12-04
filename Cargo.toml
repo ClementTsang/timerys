@@ -1,0 +1,31 @@
+[package]
+name = "timers"
+authors = ["Clement Tsang <cjhtsang@uwaterloo.ca>"]
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/ClementTsang/timers"
+keywords = ["cross-platform", "timer"]
+license = "MIT"
+categories = ["development-tools"]
+description = "A simple cross-platform timer app."
+documentation = "https://github.com/ClementTsang/timers"
+readme = "README.md"
+
+[dependencies]
+dirs = "5.0.1"
+eyre = "0.6.9"
+iced = { version = "0.10.0", features = ["advanced", "tokio"] }
+rodio = "0.17.3"
+tray-icon = "0.11.0"
+
+[lints.rust]
+missing_docs = "deny"
+unreachable_pub = "deny"
+unused_extern_crates = "deny"
+
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+missing_crate_level_docs = "deny"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
