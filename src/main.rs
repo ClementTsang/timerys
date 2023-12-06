@@ -157,15 +157,23 @@ impl Application for TimerApp {
 
         match &mut self.state {
             TimerAppState::Stopped => match message {
-                Message::UpdateTimer(new_state) => match &mut self.is_editing {
-                    EditingState::Editing(old_state) => {
-                        *old_state = new_state;
+                Message::UpdateTimer(new_state) => {
+                    match &mut self.is_editing {
+                        EditingState::Editing(old_state) => {
+                            *old_state = new_state;
+                        }
+                        EditingState::NotEditing => {
+                            // This shouldn't happen, but if it does, then just flip things on.
+                            self.is_editing = EditingState::Editing(new_state);
+                        }
                     }
-                    EditingState::NotEditing => {
-                        // This shouldn't happen, but if it does, then just flip things on.
-                        self.is_editing = EditingState::Editing(new_state);
-                    }
-                },
+
+                    self.to_wait = Duration::from_secs(
+                        new_state.hours.unwrap_or(0) * 60 * 60
+                            + new_state.minutes.unwrap_or(0) * 60
+                            + new_state.seconds.unwrap_or(0),
+                    );
+                }
                 Message::EnableTimer => {
                     self.state = TimerAppState::Started {
                         start_instant: Instant::now(),
@@ -324,7 +332,7 @@ impl Application for TimerApp {
                                     if new.is_empty() {
                                         Message::UpdateTimer(EditTimerState {
                                             hours,
-                                            minutes: None,
+                                            minutes: if hours.is_some() { Some(0) } else { None },
                                             seconds,
                                         })
                                     } else if let Ok(new) = new.parse::<u64>() {
@@ -363,7 +371,11 @@ impl Application for TimerApp {
                                         Message::UpdateTimer(EditTimerState {
                                             hours,
                                             minutes,
-                                            seconds: None,
+                                            seconds: if hours.is_some() || minutes.is_some() {
+                                                Some(0)
+                                            } else {
+                                                None
+                                            },
                                         })
                                     } else if let Ok(new) = new.parse::<u64>() {
                                         Message::UpdateTimer(EditTimerState {
@@ -480,11 +492,11 @@ impl Application for TimerApp {
             TimerAppState::Ringing => {
                 content = content.push(
                     row!(
-                        text("0").size(60).font(SEMIBOLD_FONT),
+                        text("0").size(TIME_FONT_SIZE).font(SEMIBOLD_FONT),
                         text("s")
-                            .size(25)
+                            .size(UNIT_FONT_SIZE)
                             .font(SEMIBOLD_FONT)
-                            .line_height(LineHeight::Absolute(60.into()))
+                            .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
                     )
                     .spacing(10)
                     .align_items(Alignment::End),
