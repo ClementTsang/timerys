@@ -1,4 +1,8 @@
-use std::{io::Cursor, time::Duration};
+use std::{
+    fs::File,
+    io::{BufReader, Cursor},
+    time::Duration,
+};
 
 use rodio::{Decoder, OutputStream, Sink, Source};
 
@@ -16,16 +20,20 @@ impl TimerApp {
         let (_, _, sink) = self.alarm_stream.as_ref().unwrap();
 
         match &self.alarm_path {
-            Some(path) => todo!(),
+            Some(path) => {
+                let file = BufReader::new(File::open(path)?);
+                let source = Decoder::new_looped(file)?.delay(Duration::from_millis(50));
+                sink.append(source.convert_samples::<f32>());
+            }
             None => {
                 let default_alarm = include_bytes!("../assets/sound/in_call_alarm.ogg");
                 let cursor = Cursor::new(default_alarm);
 
                 let source = Decoder::new_looped(cursor)?.delay(Duration::from_millis(50));
                 sink.append(source.convert_samples::<f32>());
-                sink.play();
             }
         }
+        sink.play();
 
         Ok(())
     }
