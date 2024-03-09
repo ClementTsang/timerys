@@ -132,7 +132,7 @@ impl Application for TimerApp {
     }
 
     fn title(&self) -> String {
-        "Timers".to_string()
+        "Timerys".to_string()
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
@@ -563,6 +563,8 @@ fn main() -> iced::Result {
         antialiasing: true,
         window: window::Settings {
             size: Size::new(400.0, 600.0),
+            min_size: Some(Size::new(400.0, 600.0)),
+            max_size: Some(Size::new(400.0, 600.0)),
             resizable: true,
             decorations: true,
             ..Default::default()

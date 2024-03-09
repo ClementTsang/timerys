@@ -1,4 +1,4 @@
-# timerys
+# Timerys
 
 A simple cross-platform timer app. Created as a study of [iced](https://github.com/iced-rs/iced) and because I
 wanted a very simple timer application.
