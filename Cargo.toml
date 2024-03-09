@@ -1,5 +1,5 @@
 [package]
-name = "timers"
+name = "timerys"
 authors = ["Clement Tsang <cjhtsang@uwaterloo.ca>"]
 version = "0.1.0"
 edition = "2021"
@@ -8,13 +8,17 @@ keywords = ["cross-platform", "timer"]
 license = "MIT"
 categories = ["development-tools"]
 description = "A simple cross-platform timer app."
-documentation = "https://github.com/ClementTsang/timers"
+documentation = "https://github.com/ClementTsang/timerys"
 readme = "README.md"
 
 [dependencies]
 dirs = "5.0.1"
 eyre = "0.6.9"
-iced = { version = "0.12.1", features = ["advanced", "tokio", "wgpu"], default-features = false }
+iced = { version = "0.12.1", features = [
+    "advanced",
+    "tokio",
+    "wgpu",
+], default-features = false }
 rodio = "0.17.3"
 tray-icon = "0.12.0"
 
