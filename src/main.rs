@@ -12,8 +12,8 @@ use iced::{
     alignment::Horizontal,
     executor, font, theme,
     widget::{button, column, container, row, text, text::LineHeight, text_input},
-    window, Alignment, Application, Command, Element, Font, Length, Renderer, Settings,
-    Subscription, Theme,
+    window, Alignment, Application, Command, Element, Font, Length, Settings, Size, Subscription,
+    Theme,
 };
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 
@@ -23,14 +23,14 @@ const DEFAULT_FONT: Font = Font {
     family: font::Family::Name("Source Sans 3"),
     weight: font::Weight::Normal,
     stretch: font::Stretch::Normal,
-    monospaced: false,
+    style: font::Style::Normal,
 };
 
 const SEMIBOLD_FONT: Font = Font {
     family: font::Family::Name("Source Sans 3"),
     weight: font::Weight::Semibold,
     stretch: font::Stretch::Normal,
-    monospaced: false,
+    style: font::Style::Normal,
 };
 
 const TIME_FONT_SIZE: u16 = 80;
@@ -231,7 +231,7 @@ impl Application for TimerApp {
         Command::none()
     }
 
-    fn view(&self) -> Element<'_, Self::Message, Renderer<Self::Theme>> {
+    fn view(&self) -> Element<Self::Message> {
         fn parse_duration(duration: Duration) -> Vec<(String, &'static str)> {
             let (hours, minutes, seconds) = human_duration(duration);
 
@@ -562,7 +562,7 @@ fn main() -> iced::Result {
     TimerApp::run(Settings {
         antialiasing: true,
         window: window::Settings {
-            size: (400, 600),
+            size: Size::new(400.0, 600.0),
             resizable: true,
             decorations: true,
             ..Default::default()

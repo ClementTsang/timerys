@@ -1,4 +1,4 @@
-use iced::{widget::button, Color, Theme, Vector};
+use iced::{widget::button, Border, Theme, Vector};
 
 #[derive(Default)]
 pub(crate) struct Transparent;
@@ -10,9 +10,7 @@ impl button::StyleSheet for Transparent {
         button::Appearance {
             shadow_offset: Vector::ZERO,
             background: None,
-            border_radius: 0.0.into(),
-            border_width: 0.0,
-            border_color: Color::TRANSPARENT,
+            border: Border::with_radius(0.0),
             ..Default::default()
         }
     }

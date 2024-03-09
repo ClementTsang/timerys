@@ -1,4 +1,4 @@
-use iced::{theme, widget::text_input, Background, Color, Theme};
+use iced::{theme, widget::text_input, Background, Border, Color, Theme};
 
 use super::DISABLED_TEXT_COLOR;
 
@@ -15,9 +15,7 @@ impl text_input::StyleSheet for Transparent {
     fn active(&self, _: &Self::Style) -> text_input::Appearance {
         text_input::Appearance {
             background: Background::Color(Color::TRANSPARENT),
-            border_radius: 0.0.into(),
-            border_width: 0.0,
-            border_color: Color::TRANSPARENT,
+            border: Border::with_radius(0.0),
             icon_color: Color::TRANSPARENT,
         }
     }
