@@ -15,6 +15,7 @@ readme = "README.md"
 dirs = "5.0.1"
 eyre = "0.6.9"
 iced = { version = "0.12.1", features = ["advanced", "tokio", "wgpu"], default-features = false }
+itertools = "0.12.1"
 rodio = "0.17.3"
 # tray-icon = "0.12.0"
 

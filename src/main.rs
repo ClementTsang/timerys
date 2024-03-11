@@ -2,6 +2,7 @@
 
 mod audio;
 mod styling;
+mod widgets;
 
 use std::{
     path::PathBuf,
@@ -15,6 +16,7 @@ use iced::{
     window, Alignment, Application, Command, Element, Font, Length, Settings, Size, Subscription,
     Theme,
 };
+use itertools::Itertools;
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 
 use crate::styling::text::{DEFAULT_TEXT_COLOR, DISABLED_TEXT_COLOR};
@@ -99,6 +101,25 @@ fn human_duration(duration: Duration) -> (u64, u64, u64) {
     (hours, minutes, seconds)
 }
 
+fn parse_duration(duration: Duration) -> Vec<(String, &'static str)> {
+    let (hours, minutes, seconds) = human_duration(duration);
+
+    let mut ret = vec![];
+
+    if hours > 0 {
+        ret.push((format!("{hours}"), "h"));
+        ret.push((format!("{minutes:0>2}"), "m"));
+        ret.push((format!("{seconds:0>2}"), "s"));
+    } else if minutes > 0 {
+        ret.push((format!("{minutes}"), "m"));
+        ret.push((format!("{seconds:0>2}"), "s"));
+    } else {
+        ret.push((format!("{seconds}"), "s"));
+    }
+
+    ret
+}
+
 struct TimerApp {
     state: TimerAppState,
     is_editing: EditingState,
@@ -138,7 +159,19 @@ impl Application for TimerApp {
     }
 
     fn title(&self) -> String {
-        "Timerys".to_string()
+        let duration = match self.state {
+            TimerAppState::Started { time_left, .. } => time_left,
+            _ => self.to_wait,
+        };
+
+        let (hours, minutes, seconds) = human_duration(duration);
+        let title_time = if hours > 0 {
+            format!("{hours:0>2}:{minutes:0>2}:{seconds:0>2}")
+        } else {
+            format!("{minutes:0>2}:{seconds:0>2}")
+        };
+
+        format!("Timerys - {title_time}",)
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
@@ -238,25 +271,6 @@ impl Application for TimerApp {
     }
 
     fn view(&self) -> Element<Self::Message> {
-        fn parse_duration(duration: Duration) -> Vec<(String, &'static str)> {
-            let (hours, minutes, seconds) = human_duration(duration);
-
-            let mut ret = vec![];
-
-            if hours > 0 {
-                ret.push((format!("{hours}"), "h"));
-                ret.push((format!("{minutes:0>2}"), "m"));
-                ret.push((format!("{seconds:0>2}"), "s"));
-            } else if minutes > 0 {
-                ret.push((format!("{minutes}"), "m"));
-                ret.push((format!("{seconds:0>2}"), "s"));
-            } else {
-                ret.push((format!("{seconds}"), "s"));
-            }
-
-            ret
-        }
-
         let mut content = column![]
             .align_items(Alignment::Center)
             .spacing(20)
@@ -273,74 +287,83 @@ impl Application for TimerApp {
                     let (curr_hours, curr_minutes, curr_seconds) = human_duration(self.to_wait);
                     let mut wrapper = row!().spacing(10);
 
-                    let (h_placeholder, h_val) = match hours {
-                        Some(hours) => (String::default(), format!("{hours:0>2}")),
-                        None => (format!("{curr_hours:0>2}"), String::default()),
+                    let h_val = match hours {
+                        Some(hours) => format!("{hours:0>2}"),
+                        None => format!("{curr_hours:0>2}"),
                     };
 
-                    let (m_placeholder, m_val) = match minutes {
-                        Some(minutes) => (String::default(), format!("{minutes:0>2}")),
-                        None => (format!("{curr_minutes:0>2}"), String::default()),
+                    let m_val = match minutes {
+                        Some(minutes) => format!("{minutes:0>2}"),
+                        None => format!("{curr_minutes:0>2}"),
                     };
 
-                    let (s_placeholder, s_val) = match seconds {
-                        Some(seconds) => (String::default(), format!("{seconds:0>2}")),
-                        None => (format!("{curr_seconds:0>2}"), String::default()),
+                    let s_val = match seconds {
+                        Some(seconds) => format!("{seconds:0>2}"),
+                        None => format!("{curr_seconds:0>2}"),
                     };
+
+                    let hour_style = theme::Text::Color(if hours.is_none() {
+                        DISABLED_TEXT_COLOR
+                    } else {
+                        DEFAULT_TEXT_COLOR
+                    });
 
                     wrapper = wrapper.push(
                         row!(
                             text(&h_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
-                                .width(TIME_FONT_SIZE),
+                                .width(TIME_FONT_SIZE)
+                                .style(hour_style),
                             text("h")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
-                                .style(theme::Text::Color(if h_val.is_empty() {
-                                    DISABLED_TEXT_COLOR
-                                } else {
-                                    DEFAULT_TEXT_COLOR
-                                }))
+                                .style(hour_style),
                         )
                         .align_items(Alignment::End),
                     );
+
+                    let minute_style = theme::Text::Color(if minutes.is_none() {
+                        DISABLED_TEXT_COLOR
+                    } else {
+                        DEFAULT_TEXT_COLOR
+                    });
 
                     wrapper = wrapper.push(
                         row!(
                             text(&m_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
-                                .width(TIME_FONT_SIZE),
+                                .width(TIME_FONT_SIZE)
+                                .style(minute_style),
                             text("m")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
-                                .style(theme::Text::Color(if m_val.is_empty() {
-                                    DISABLED_TEXT_COLOR
-                                } else {
-                                    DEFAULT_TEXT_COLOR
-                                }))
+                                .style(minute_style),
                         )
                         .align_items(Alignment::End),
                     );
+
+                    let second_style = theme::Text::Color(if seconds.is_none() {
+                        DISABLED_TEXT_COLOR
+                    } else {
+                        DEFAULT_TEXT_COLOR
+                    });
 
                     wrapper = wrapper.push(
                         row!(
                             text(&s_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
-                                .width(TIME_FONT_SIZE),
+                                .width(TIME_FONT_SIZE)
+                                .style(second_style),
                             text("s")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
-                                .style(theme::Text::Color(if s_val.is_empty() {
-                                    DISABLED_TEXT_COLOR
-                                } else {
-                                    DEFAULT_TEXT_COLOR
-                                }))
+                                .style(second_style),
                         )
                         .align_items(Alignment::End),
                     );
