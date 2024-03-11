@@ -6,10 +6,11 @@ edition = "2021"
 repository = "https://github.com/ClementTsang/timers"
 keywords = ["cross-platform", "timer"]
 license = "MIT"
-categories = ["development-tools"]
+categories = ["gui"]
 description = "A simple cross-platform timer app."
 documentation = "https://github.com/ClementTsang/timerys"
 readme = "README.md"
+exclude = ["readme_assets", ".vscode", "target"]
 
 [dependencies]
 dirs = "5.0.1"
