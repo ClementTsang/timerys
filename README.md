@@ -1,10 +1,16 @@
 # Timerys
 
+[<img src="https://img.shields.io/crates/v/timerys.svg?style=flat-square" alt="crates.io link">](https://crates.io/crates/timerys)
+
 A simple cross-platform timer app. Created as a study of [iced](https://github.com/iced-rs/iced) and because I
 wanted a very simple timer application.
 
 This can be a lot prettier but some cosmetic details I want to add are not easy to do in iced as of writing -
 though I imagine it'll get better soon!
+
+![Interface when started](readme_assets/timer.png)
+
+![Change the duration](readme_assets/edit.png)
 
 ## Thanks/credits
 
