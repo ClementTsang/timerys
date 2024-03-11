@@ -11,13 +11,13 @@ use std::{
 use iced::{
     alignment::Horizontal,
     executor, font, theme,
-    widget::{button, column, container, row, text, text::LineHeight, text_input},
+    widget::{button, column, container, row, text, text::LineHeight},
     window, Alignment, Application, Command, Element, Font, Length, Settings, Size, Subscription,
     Theme,
 };
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 
-use crate::styling::{DEFAULT_TEXT_COLOR, DISABLED_TEXT_COLOR};
+use crate::styling::text::{DEFAULT_TEXT_COLOR, DISABLED_TEXT_COLOR};
 
 const DEFAULT_FONT: Font = Font {
     family: font::Family::Name("Source Sans 3"),
@@ -84,7 +84,13 @@ enum EditingState {
 }
 
 fn human_duration(duration: Duration) -> (u64, u64, u64) {
-    let total_secs = duration.as_secs();
+    // Ugly way to make it so it doesn't immediately round down to the nearest second.
+    let total_secs_f64 = duration.as_secs_f64();
+    let total_secs = if total_secs_f64 - total_secs_f64.trunc() > 0.1 {
+        total_secs_f64.ceil() as u64
+    } else {
+        total_secs_f64.floor() as u64
+    };
 
     let hours = total_secs / (60 * 60);
     let minutes = (total_secs % (60 * 60)) / 60;
@@ -284,29 +290,10 @@ impl Application for TimerApp {
 
                     wrapper = wrapper.push(
                         row!(
-                            text_input(&h_placeholder, &h_val)
+                            text(&h_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
-                                .style(styling::text_input::transparent_style())
-                                .width(TIME_FONT_SIZE)
-                                .padding(0)
-                                .on_input(move |new| {
-                                    if new.is_empty() {
-                                        Message::UpdateTimer(EditTimerState {
-                                            hours: None,
-                                            minutes,
-                                            seconds,
-                                        })
-                                    } else if let Ok(new) = new.parse::<u64>() {
-                                        Message::UpdateTimer(EditTimerState {
-                                            hours: Some(new),
-                                            minutes: minutes.or(Some(0)),
-                                            seconds: seconds.or(Some(0)),
-                                        })
-                                    } else {
-                                        Message::Ignore
-                                    }
-                                }),
+                                .width(TIME_FONT_SIZE),
                             text("h")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
@@ -322,29 +309,10 @@ impl Application for TimerApp {
 
                     wrapper = wrapper.push(
                         row!(
-                            text_input(&m_placeholder, &m_val)
+                            text(&m_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
-                                .style(styling::text_input::transparent_style())
-                                .width(TIME_FONT_SIZE)
-                                .padding(0)
-                                .on_input(move |new| {
-                                    if new.is_empty() {
-                                        Message::UpdateTimer(EditTimerState {
-                                            hours,
-                                            minutes: if hours.is_some() { Some(0) } else { None },
-                                            seconds,
-                                        })
-                                    } else if let Ok(new) = new.parse::<u64>() {
-                                        Message::UpdateTimer(EditTimerState {
-                                            hours,
-                                            minutes: Some(new),
-                                            seconds: seconds.or(Some(0)),
-                                        })
-                                    } else {
-                                        Message::Ignore
-                                    }
-                                }),
+                                .width(TIME_FONT_SIZE),
                             text("m")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
@@ -360,33 +328,10 @@ impl Application for TimerApp {
 
                     wrapper = wrapper.push(
                         row!(
-                            text_input(&s_placeholder, &s_val)
+                            text(&s_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
-                                .style(styling::text_input::transparent_style())
-                                .width(TIME_FONT_SIZE)
-                                .padding(0)
-                                .on_input(move |new| {
-                                    if new.is_empty() {
-                                        Message::UpdateTimer(EditTimerState {
-                                            hours,
-                                            minutes,
-                                            seconds: if hours.is_some() || minutes.is_some() {
-                                                Some(0)
-                                            } else {
-                                                None
-                                            },
-                                        })
-                                    } else if let Ok(new) = new.parse::<u64>() {
-                                        Message::UpdateTimer(EditTimerState {
-                                            hours,
-                                            minutes,
-                                            seconds: Some(new),
-                                        })
-                                    } else {
-                                        Message::Ignore
-                                    }
-                                }),
+                                .width(TIME_FONT_SIZE),
                             text("s")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
@@ -399,7 +344,6 @@ impl Application for TimerApp {
                         )
                         .align_items(Alignment::End),
                     );
-
                     content = content.push(wrapper);
                 } else {
                     let durations = parse_duration(self.to_wait);
