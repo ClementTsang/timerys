@@ -1,22 +1,27 @@
 //! A simple cross-platform timer app.
 
 mod audio;
+mod num_input_container;
 mod styling;
-mod widgets;
 
 use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
 
+// Q: Why is there this "text as textt" thing?
+// Because rustfmt tries to merge the imports which breaks using the "text" function widget.
+// e.g. text::{self, LineHeight} - this then makes calling the "text" function break. Fun!
+// But why not something smarter? Because working with iced is frustrating enough that I don't care
+// as long as it works enough.
 use iced::{
     alignment::Horizontal,
     executor, font, theme,
-    widget::{button, column, container, row, text, text::LineHeight},
+    widget::{button, column, container, row, text as textt, text::LineHeight},
     window, Alignment, Application, Command, Element, Font, Length, Settings, Size, Subscription,
     Theme,
 };
-use itertools::Itertools;
+use num_input_container::NumInputContainer;
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 
 use crate::styling::text::{DEFAULT_TEXT_COLOR, DISABLED_TEXT_COLOR};
@@ -42,16 +47,15 @@ const BUTTON_FONT_SIZE: u16 = 18;
 #[derive(Clone, Debug)]
 enum Message {
     EnableEditTimer,
-    UpdateTimer(EditTimerState),
+    // DisableEditTimer,
+    EditNewNum(u32),
+    EditBackspace,
     Tick,
     EnableTimer,
     TogglePause,
     ResetTimer,
     StopRinging,
     FontLoaded(Result<(), font::Error>),
-
-    // Dummy message for some cases.
-    Ignore,
 }
 
 #[derive(Debug)]
@@ -72,16 +76,9 @@ enum TimerAppState {
     Ringing,
 }
 
-#[derive(Clone, Copy, Debug)]
-struct EditTimerState {
-    hours: Option<u64>,
-    minutes: Option<u64>,
-    seconds: Option<u64>,
-}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 enum EditingState {
-    Editing(EditTimerState),
+    Editing(String),
     NotEditing,
 }
 
@@ -120,6 +117,53 @@ fn parse_duration(duration: Duration) -> Vec<(String, &'static str)> {
     ret
 }
 
+// TODO: 2x calls to this are probably unnecessary, can dedupe it.
+fn string_to_hms(s: &str) -> (Option<u32>, Option<u32>, Option<u32>) {
+    let mut iter = s.chars();
+
+    let seconds = if let Some(c) = iter.next_back() {
+        let mut num = 0;
+        num += c.to_digit(10).unwrap();
+
+        if let Some(c) = iter.next_back() {
+            num += c.to_digit(10).unwrap() * 10;
+        }
+
+        Some(num)
+    } else {
+        None
+    };
+
+    let minutes = if let Some(c) = iter.next_back() {
+        let mut num = 0;
+        num += c.to_digit(10).unwrap();
+
+        if let Some(c) = iter.next_back() {
+            num += c.to_digit(10).unwrap() * 10;
+        }
+
+        Some(num)
+    } else {
+        None
+    };
+
+    let hours = if let Some(c) = iter.next() {
+        let mut num = 0;
+        num += c.to_digit(10).unwrap();
+
+        while let Some(c) = iter.next_back() {
+            num *= 10;
+            num += c.to_digit(10).unwrap();
+        }
+
+        Some(num)
+    } else {
+        None
+    };
+
+    (hours, minutes, seconds)
+}
+
 struct TimerApp {
     state: TimerAppState,
     is_editing: EditingState,
@@ -128,6 +172,17 @@ struct TimerApp {
     to_wait: Duration,
     alarm_path: Option<PathBuf>,
     alarm_stream: Option<(OutputStream, OutputStreamHandle, Sink)>,
+}
+
+impl TimerApp {
+    fn update_to_wait_from_str(&mut self, s: &str) {
+        let (hours, minutes, seconds) = string_to_hms(s);
+
+        self.to_wait = Duration::from_secs(
+            (hours.unwrap_or(0) * 60 * 60 + minutes.unwrap_or(0) * 60 + seconds.unwrap_or(0))
+                .into(),
+        );
+    }
 }
 
 impl Application for TimerApp {
@@ -196,22 +251,42 @@ impl Application for TimerApp {
 
         match &mut self.state {
             TimerAppState::Stopped => match message {
-                Message::UpdateTimer(new_state) => {
-                    match &mut self.is_editing {
+                Message::EditNewNum(new_digit) => {
+                    let current = match &mut self.is_editing {
                         EditingState::Editing(old_state) => {
-                            *old_state = new_state;
+                            // TODO: For now, limit to 6 digits, can support more in the future.
+                            if old_state.len() >= 6 {
+                                return Command::none();
+                            }
+
+                            old_state.push_str(&new_digit.to_string());
+                            old_state.clone()
                         }
                         EditingState::NotEditing => {
                             // This shouldn't happen, but if it does, then just flip things on.
-                            self.is_editing = EditingState::Editing(new_state);
+                            let s = new_digit.to_string();
+                            self.is_editing = EditingState::Editing(s.clone());
+                            s
                         }
-                    }
+                    };
 
-                    self.to_wait = Duration::from_secs(
-                        new_state.hours.unwrap_or(0) * 60 * 60
-                            + new_state.minutes.unwrap_or(0) * 60
-                            + new_state.seconds.unwrap_or(0),
-                    );
+                    self.update_to_wait_from_str(&current);
+                }
+                Message::EditBackspace => {
+                    let current = match &mut self.is_editing {
+                        EditingState::Editing(old_state) => {
+                            old_state.pop();
+                            old_state.clone()
+                        }
+                        EditingState::NotEditing => {
+                            // This shouldn't happen, but if it does, then it would just be the empty string anyway.
+                            // Flip it on and return the empty string.
+                            self.is_editing = EditingState::Editing(String::new());
+                            String::new()
+                        }
+                    };
+
+                    self.update_to_wait_from_str(&current);
                 }
                 Message::EnableTimer => {
                     self.state = TimerAppState::Started {
@@ -223,12 +298,11 @@ impl Application for TimerApp {
                     self.is_editing = EditingState::NotEditing;
                 }
                 Message::EnableEditTimer => {
-                    self.is_editing = EditingState::Editing(EditTimerState {
-                        hours: None,
-                        minutes: None,
-                        seconds: None,
-                    });
+                    self.is_editing = EditingState::Editing(String::new());
                 }
+                // Message::DisableEditTimer => {
+                //     self.is_editing = EditingState::NotEditing;
+                // }
                 _ => {}
             },
             TimerAppState::Started {
@@ -276,14 +350,16 @@ impl Application for TimerApp {
             .spacing(20)
             .max_width(600);
 
+        let mut is_editing = false;
+
         let (left_button, right_button) = match &self.state {
             TimerAppState::Stopped => {
-                if let EditingState::Editing(EditTimerState {
-                    hours,
-                    minutes,
-                    seconds,
-                }) = self.is_editing
-                {
+                if let EditingState::Editing(s) = &self.is_editing {
+                    is_editing = true;
+
+                    // Assuming the "string" is something like hh(...)mmss, where hh can be any number of digits:
+                    let (hours, minutes, seconds) = string_to_hms(&s);
+
                     let (curr_hours, curr_minutes, curr_seconds) = human_duration(self.to_wait);
                     let mut wrapper = row!().spacing(10);
 
@@ -310,12 +386,12 @@ impl Application for TimerApp {
 
                     wrapper = wrapper.push(
                         row!(
-                            text(&h_val)
+                            textt(&h_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .width(TIME_FONT_SIZE)
                                 .style(hour_style),
-                            text("h")
+                            textt("h")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
@@ -332,12 +408,12 @@ impl Application for TimerApp {
 
                     wrapper = wrapper.push(
                         row!(
-                            text(&m_val)
+                            textt(&m_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .width(TIME_FONT_SIZE)
                                 .style(minute_style),
-                            text("m")
+                            textt("m")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
@@ -352,14 +428,16 @@ impl Application for TimerApp {
                         DEFAULT_TEXT_COLOR
                     });
 
+                    // TODO: Ideally stick a cursor line here between the number and s, but that's a pain to do
+                    // right now in iced.
                     wrapper = wrapper.push(
                         row!(
-                            text(&s_val)
+                            textt(&s_val)
                                 .size(TIME_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .width(TIME_FONT_SIZE)
                                 .style(second_style),
-                            text("s")
+                            textt("s")
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
@@ -367,6 +445,9 @@ impl Application for TimerApp {
                         )
                         .align_items(Alignment::End),
                     );
+
+                    // TODO: Ideally wrap this in a container with just one border on the bottom - but you can't
+                    // do that in iced right now!
                     content = content.push(wrapper);
                 } else {
                     let durations = parse_duration(self.to_wait);
@@ -374,8 +455,8 @@ impl Application for TimerApp {
                     for (amount, unit) in durations {
                         displayed_duration = displayed_duration.push(
                             row!(
-                                text(amount).size(TIME_FONT_SIZE).font(SEMIBOLD_FONT),
-                                text(unit)
+                                textt(amount).size(TIME_FONT_SIZE).font(SEMIBOLD_FONT),
+                                textt(unit)
                                     .size(UNIT_FONT_SIZE)
                                     .font(SEMIBOLD_FONT)
                                     .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
@@ -384,16 +465,17 @@ impl Application for TimerApp {
                         );
                     }
 
-                    let wrapper = button(displayed_duration)
+                    // This is so jankkkkkk.
+                    let edit_button_wrapper = button(displayed_duration)
                         .style(theme::Button::custom(styling::button::Transparent))
                         .padding(0)
                         .on_press(Message::EnableEditTimer);
 
-                    content = content.push(wrapper);
+                    content = content.push(edit_button_wrapper);
                 }
 
                 let left_button = button(
-                    text("Start")
+                    textt("Start")
                         .size(BUTTON_FONT_SIZE)
                         .horizontal_alignment(Horizontal::Center),
                 )
@@ -402,7 +484,7 @@ impl Application for TimerApp {
                 .on_press(Message::EnableTimer);
 
                 let right_button = button(
-                    text("Reset")
+                    textt("Reset")
                         .size(BUTTON_FONT_SIZE)
                         .horizontal_alignment(Horizontal::Center),
                 )
@@ -421,8 +503,8 @@ impl Application for TimerApp {
                 for (amount, unit) in durations {
                     displayed_duration = displayed_duration.push(
                         row!(
-                            text(amount).size(TIME_FONT_SIZE).font(SEMIBOLD_FONT),
-                            text(unit)
+                            textt(amount).size(TIME_FONT_SIZE).font(SEMIBOLD_FONT),
+                            textt(unit)
                                 .size(UNIT_FONT_SIZE)
                                 .font(SEMIBOLD_FONT)
                                 .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
@@ -434,7 +516,7 @@ impl Application for TimerApp {
                 content = content.push(displayed_duration);
 
                 let left_button = button(
-                    text(match is_paused {
+                    textt(match is_paused {
                         IsPaused::Paused { .. } => "Resume",
                         IsPaused::NotPaused { .. } => "Pause",
                     })
@@ -446,7 +528,7 @@ impl Application for TimerApp {
                 .on_press(Message::TogglePause);
 
                 let right_button = button(
-                    text("Reset")
+                    textt("Reset")
                         .size(BUTTON_FONT_SIZE)
                         .horizontal_alignment(Horizontal::Center),
                 )
@@ -458,19 +540,20 @@ impl Application for TimerApp {
             }
             TimerAppState::Ringing => {
                 content = content.push(
-                    row!(
-                        text("0").size(TIME_FONT_SIZE).font(SEMIBOLD_FONT),
-                        text("s")
+                    row!(row!(
+                        textt("0").size(TIME_FONT_SIZE).font(SEMIBOLD_FONT),
+                        textt("s")
                             .size(UNIT_FONT_SIZE)
                             .font(SEMIBOLD_FONT)
                             .line_height(LineHeight::Absolute(TIME_FONT_SIZE.into()))
                     )
+                    .align_items(Alignment::End))
                     .spacing(10)
                     .align_items(Alignment::End),
                 );
 
                 let left_button = button(
-                    text("Okay")
+                    textt("Okay")
                         .size(BUTTON_FONT_SIZE)
                         .horizontal_alignment(Horizontal::Center),
                 )
@@ -479,7 +562,7 @@ impl Application for TimerApp {
                 .on_press(Message::StopRinging);
 
                 let right_button = button(
-                    text("Reset")
+                    textt("Reset")
                         .size(BUTTON_FONT_SIZE)
                         .horizontal_alignment(Horizontal::Center),
                 )
@@ -499,12 +582,17 @@ impl Application for TimerApp {
 
         content = content.push(buttons);
 
-        container(content)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x()
-            .center_y()
-            .into()
+        NumInputContainer::new(
+            container(content)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y(),
+            Box::new(Message::EditNewNum),
+            Box::new(|| Message::EditBackspace),
+            !is_editing,
+        )
+        .into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
