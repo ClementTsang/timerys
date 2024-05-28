@@ -15,8 +15,12 @@ exclude = ["readme_assets", ".vscode", "target"]
 [dependencies]
 dirs = "5.0.1"
 eyre = "0.6.9"
-iced = { version = "0.12.1", features = ["advanced", "tokio", "wgpu"], default-features = false }
-rodio = "0.17.3"
+iced = { version = "0.12.1", features = [
+    "advanced",
+    "tokio",
+    "wgpu",
+], default-features = false }
+rodio = "0.18.1"
 # tray-icon = "0.12.0"
 
 [lints.rust]
