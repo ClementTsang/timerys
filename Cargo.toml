@@ -10,18 +10,21 @@ categories = ["gui"]
 description = "A simple cross-platform timer app."
 documentation = "https://github.com/ClementTsang/timerys"
 readme = "README.md"
-exclude = ["readme_assets", ".vscode", "target"]
+exclude = [".github", ".vscode", "target", "readme_assets"]
 
 [dependencies]
 dirs = "5.0.1"
 eyre = "0.6.9"
-iced = { version = "0.12.1", features = [
-    "advanced",
-    "tokio",
-    "wgpu",
-], default-features = false }
+iced = { version = "0.12.1", features = ["advanced", "tokio", "wgpu"], default-features = false }
 rodio = "0.18.1"
 # tray-icon = "0.12.0"
+
+[profile.release]
+debug = 0
+strip = "symbols"
+lto = true
+opt-level = 3
+codegen-units = 1
 
 [lints.rust]
 missing_docs = "deny"

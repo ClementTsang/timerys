@@ -16,7 +16,7 @@ use std::{
 // as long as it works enough.
 use iced::{
     alignment::Horizontal,
-    executor, font, theme,
+    executor, font, keyboard, theme,
     widget::{button, column, container, row, text as textt, text::LineHeight},
     window, Alignment, Application, Command, Element, Font, Length, Settings, Size, Subscription,
     Theme,
@@ -603,7 +603,13 @@ impl Application for TimerApp {
                     iced::time::every(Duration::from_millis(100)).map(|_| Message::Tick)
                 }
             },
-            TimerAppState::Stopped => Subscription::none(),
+            TimerAppState::Stopped => match self.is_editing {
+                EditingState::Editing(_) => keyboard::on_key_press(|key, _modifier| match key {
+                    keyboard::Key::Named(keyboard::key::Named::Enter) => Some(Message::EnableTimer),
+                    _ => None,
+                }),
+                EditingState::NotEditing => Subscription::none(),
+            },
             TimerAppState::Ringing => {
                 // This is a bit silly but this is a fast way to not have to import more crates on my end so...
 
